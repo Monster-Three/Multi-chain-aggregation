@@ -10,5 +10,6 @@ export const FACTORY_ABI = [
 
 export const ACCOUNT_ABI = [
     "function execute(address dest, uint256 value, bytes func) external",
-    "function owner() view returns (address)"
+    "function owner() view returns (address)",
+    "function initialize(address _owner) external"
 ];
