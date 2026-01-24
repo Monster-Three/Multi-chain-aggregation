@@ -1,6 +1,3 @@
-### 🛠️ 建议微调后的最终版 (直接复制即可)
-
-```markdown
 # 🐟 FishCake: Multi-Chain Smart Account & Advanced Oracle Paymaster
 
 **FishCake** 是一款基于 **ERC-4337 (v0.7.0)** 最新标准构建的多链聚合智能账户解决方案。本项目通过 **CREATE2** 技术实现多链同地址部署，并配套了从基础白名单到金融级预言机计费的两代 Paymaster 架构，旨在提供无缝且可持续的 Web3 支付体验。
