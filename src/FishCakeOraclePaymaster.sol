@@ -65,14 +65,14 @@ contract FishCakeOraclePaymaster is BasePaymaster {
      * @notice ERC-4337 验证函数：决定是否为用户的操作支付 Gas
      * @dev 验证阶段会预估最大的代币成本，并检查用户余额是否充足
      * @param userOp 封装的用户操作对象 (v0.7.0 PackedUserOperation)
-     * @param userOpHash 用户操作的唯一哈希值
+     * @param  用户操作的唯一哈希值
      * @param maxCost 此次交易可能消耗的最大 ETH 成本
      * @return context 包含发送者地址和当前币价的上下文数据，传递给 postOp
      * @return validationData 验证结果（0 代表通过）
      */
     function _validatePaymasterUserOp(
         PackedUserOperation calldata userOp,
-        bytes32 userOpHash,
+        bytes32 /* userOpHash */,
         uint256 maxCost
     )
         internal
@@ -104,13 +104,13 @@ contract FishCakeOraclePaymaster is BasePaymaster {
      * @param mode 操作模式
      * @param context 上下文数据
      * @param actualGasCost 实际消耗的 ETH 成本
-     * @param actualUserOpFeePerGas 实际的 Gas 价格（v0.7 新增参数）
+     * @param  实际的 Gas 价格（v0.7 新增参数）
      */
     function _postOp(
         PostOpMode mode,
         bytes calldata context,
         uint256 actualGasCost,
-        uint256 actualUserOpFeePerGas // <--- 必须加上这个参数名和类型
+        uint256 /* actualUserOpFeePerGas */ // <--- 必须加上这个参数名和类型
     ) internal override {
         // 以下逻辑保持不变
         if (mode == PostOpMode.postOpReverted) return;
@@ -130,7 +130,7 @@ contract FishCakeOraclePaymaster is BasePaymaster {
      * @notice 管理员功能：向 EntryPoint 充值 ETH 以维持 Paymaster 运行
      * @dev 必须与父类 BasePaymaster 的可见性一致（public）
      */
-    function deposit() public payable override onlyOwner {
+    function depositFunds() public payable onlyOwner {
         entryPoint().depositTo{value: msg.value}(address(this));
     }
 
