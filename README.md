@@ -57,14 +57,6 @@ require(price > 0, "Chainlink: invalid price");
 ├── lib/                           # 依赖库 (Account Abstraction v0.7, OpenZeppelin)
 └── test/                          # 自动化测试脚本
 
-```
-
----
-
-## 🛡️ 原创性声明
-
-本项目由 **Monster-Three** 独立开发，核心代码逻辑（特别是针对 v0.7 版本的兼容性重构）均为原创。我们通过对底层库变动的深度适配，证明了项目在多链环境下的生产可用性。
-
 ---
 
 ## ⚙️ 快速开始
