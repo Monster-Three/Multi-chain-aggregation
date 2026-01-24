@@ -101,17 +101,18 @@ contract FishCakeOraclePaymaster is BasePaymaster {
 
     /**
      * @notice 交易执行后的结算钩子
-     * @dev 根据实际消耗的 Gas 和验证阶段锁定的汇率进行精准扣款
-     * @param mode 操作模式（成功、回滚或签名错误）
-     * @param context _validatePaymasterUserOp 传递过来的上下文
+     * @param mode 操作模式
+     * @param context 上下文数据
      * @param actualGasCost 实际消耗的 ETH 成本
+     * @param actualUserOpFeePerGas 实际的 Gas 价格（v0.7 新增参数）
      */
     function _postOp(
         PostOpMode mode,
         bytes calldata context,
-        uint256 actualGasCost
+        uint256 actualGasCost,
+        uint256 actualUserOpFeePerGas // <--- 必须加上这个参数名和类型
     ) internal override {
-        // 如果模式是回滚，通常不需要进行代币转账
+        // 以下逻辑保持不变
         if (mode == PostOpMode.postOpReverted) return;
 
         (address sender, uint256 ethPrice) = abi.decode(
@@ -119,19 +120,17 @@ contract FishCakeOraclePaymaster is BasePaymaster {
             (address, uint256)
         );
 
-        // 按实际执行消耗的 Gas 计算代币数量
         uint256 actualTokenCost = (actualGasCost * ethPrice * PRICE_MARKUP) /
             (1e8 * PRICE_DENOMINATOR);
 
-        // 从用户钱包划转代币到 Paymaster 合约中
-        // 注意：用户必须预先对本合约进行 token.approve
         token.safeTransferFrom(sender, address(this), actualTokenCost);
     }
 
     /**
      * @notice 管理员功能：向 EntryPoint 充值 ETH 以维持 Paymaster 运行
+     * @dev 必须与父类 BasePaymaster 的可见性一致（public）
      */
-    function deposit() external payable onlyOwner {
+    function deposit() public payable override onlyOwner {
         entryPoint().depositTo{value: msg.value}(address(this));
     }
 
