@@ -82,7 +82,7 @@ contract FishCakePaymaster is Ownable {
      * @notice 向 EntryPoint 充值 ETH
      * @dev Paymaster 的资金必须预存在 EntryPoint 中，交易发生时由 EntryPoint 直接扣除
      */
-    function deposit() external payable {
+    function deposit() external payable onlyOwner {
         // 调用 EntryPoint 的 depositTo 函数，将资金记录在 FishCakePaymaster 名下
         (bool success, ) = ENTRY_POINT.call{value: msg.value}(
             abi.encodeWithSignature("depositTo(address)", address(this))

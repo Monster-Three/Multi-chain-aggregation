@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "forge-std/Test.sol";
-import "../../src/FishCakeFactory.sol";
-import "../../src/FishCakeSmartAccount.sol";
+import {Test} from "forge-std/Test.sol";
+import {FishCakeFactory} from "../../src/FishCakeFactory.sol";
+import {FishCakeSmartAccount} from "../../src/FishCakeSmartAccount.sol";
 
 contract FishCakeFuzzTest is Test {
     FishCakeFactory public factory;
