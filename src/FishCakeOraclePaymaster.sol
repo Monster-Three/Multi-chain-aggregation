@@ -4,23 +4,38 @@ pragma solidity ^0.8.20;
 import {BasePaymaster} from "@account-abstraction/contracts/core/BasePaymaster.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-// 引入 Chainlink 接口
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
 import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/PackedUserOperation.sol";
 
+/**
+ * @title FishCakeOraclePaymaster
+ * @author Monster-Three
+ * @notice 进阶版预言机计费 Paymaster
+ * @dev 实现了 ERC-4337 v0.7.0 标准，允许用户使用 ERC20 代币支付 Gas，并通过 Chainlink 获取实时汇率。
+ * 该合约通过收取的 PRICE_MARKUP 实现协议的自我盈利。
+ */
 contract FishCakeOraclePaymaster is BasePaymaster {
     using SafeERC20 for IERC20;
 
+    /// @notice 用户支付 Gas 所使用的代币地址（如 USDC）
     IERC20 public immutable token;
+
+    /// @notice Chainlink 价格喂价接口
     AggregatorV3Interface internal immutable priceFeed;
 
-    // 价格安全边际：比如 110 代表收取 110%，多收 10% 作为服务费或风险对冲
+    /// @dev 价格安全边际：110 代表收取 110% 的费用（10% 作为服务费及价格波动对冲）
     uint256 public constant PRICE_MARKUP = 110;
+    /// @dev 分母基数，用于计算百分比
     uint256 public constant PRICE_DENOMINATOR = 100;
 
-    // 以 Sepolia 测试网为例：ETH/USD 价格对地址
-    // 实际部署时可根据不同链更改此地址
+    /**
+     * @notice 初始化 Paymaster 合约
+     * @param _entryPoint ERC-4337 EntryPoint 官方合约地址
+     * @param _owner 合约管理员地址（拥有提现和配置权限）
+     * @param _token 用户支付 Gas 用的 ERC20 代币地址
+     * @param _priceFeed Chainlink 价格对地址（例如 ETH/USD）
+     */
     constructor(
         IEntryPoint _entryPoint,
         address _owner,
@@ -29,21 +44,15 @@ contract FishCakeOraclePaymaster is BasePaymaster {
     ) BasePaymaster(_entryPoint, _owner) {
         token = IERC20(_token);
         priceFeed = AggregatorV3Interface(_priceFeed);
-        // 显式将权限转交给 _owner
-        transferOwnership(_owner);
     }
 
     /**
-     * @notice 获取最新的 ETH 价格
+     * @notice 从 Chainlink 预言机获取最新的 ETH 价格
+     * @dev 包含时效性检查，防止过时价格导致合约亏损
+     * @return 8 位精度的 ETH 价格
      */
     function getLatestPrice() public view returns (uint256) {
-        (
-            ,
-            /* uint80 roundID */ int price,
-            ,
-            /* uint startedAt */ uint timeStamp /* uint80 answeredInRound */,
-
-        ) = priceFeed.latestRoundData();
+        (, int price, , uint timeStamp, ) = priceFeed.latestRoundData();
 
         // 检查预言机数据的时效性（防止“喂价过时”攻击）
         require(timeStamp > 0, "Chainlink: stale price");
@@ -52,9 +61,18 @@ contract FishCakeOraclePaymaster is BasePaymaster {
         return uint256(price);
     }
 
+    /**
+     * @notice ERC-4337 验证函数：决定是否为用户的操作支付 Gas
+     * @dev 验证阶段会预估最大的代币成本，并检查用户余额是否充足
+     * @param userOp 封装的用户操作对象 (v0.7.0 PackedUserOperation)
+     * @param userOpHash 用户操作的唯一哈希值
+     * @param maxCost 此次交易可能消耗的最大 ETH 成本
+     * @return context 包含发送者地址和当前币价的上下文数据，传递给 postOp
+     * @return validationData 验证结果（0 代表通过）
+     */
     function _validatePaymasterUserOp(
         PackedUserOperation calldata userOp,
-        bytes32 /*userOpHash*/,
+        bytes32 userOpHash,
         uint256 maxCost
     )
         internal
@@ -62,37 +80,67 @@ contract FishCakeOraclePaymaster is BasePaymaster {
         override
         returns (bytes memory context, uint256 validationData)
     {
-        uint256 ethPrice = getLatestPrice(); // 假设返回 2500 * 1e8
+        uint256 ethPrice = getLatestPrice();
 
-        // 计算 Token 成本：将 ETH 成本转换为 Token 数量
-        // 注意：这里需要根据 Token 的精度（如 USDC 是 6 位，ETH 是 18 位）进行复杂的移位运算
+        /**
+         * 计算代币最大成本逻辑：
+         * maxTokenCost = (ETH 成本 * ETH 价格 * 溢价系数) / 预言机精度
+         */
         uint256 maxTokenCost = (maxCost * ethPrice * PRICE_MARKUP) /
             (1e8 * PRICE_DENOMINATOR);
 
+        // 验证用户是否有足够的代币余额来支付这笔 Gas
         require(
             token.balanceOf(userOp.sender) >= maxTokenCost,
             "Paymaster: User low balance"
         );
 
+        // 将数据编码传给 _postOp 阶段进行最终结算
         return (abi.encode(userOp.sender, ethPrice), 0);
     }
 
+    /**
+     * @notice 交易执行后的结算钩子
+     * @dev 根据实际消耗的 Gas 和验证阶段锁定的汇率进行精准扣款
+     * @param mode 操作模式（成功、回滚或签名错误）
+     * @param context _validatePaymasterUserOp 传递过来的上下文
+     * @param actualGasCost 实际消耗的 ETH 成本
+     */
     function _postOp(
-        PostOpMode /* mode */,
+        PostOpMode mode,
         bytes calldata context,
-        uint256 actualGasCost,
-        uint256 /* actualUserOpFeePerGas */ // v0.7 可能多出了这一项，取决于你具体的库版本
-    ) internal virtual override {
-        // 如果你的库版本只需要 3 个参数，请删掉第四个
-        // 逻辑代码保持不变
+        uint256 actualGasCost
+    ) internal override {
+        // 如果模式是回滚，通常不需要进行代币转账
+        if (mode == PostOpMode.postOpReverted) return;
+
         (address sender, uint256 ethPrice) = abi.decode(
             context,
             (address, uint256)
         );
 
+        // 按实际执行消耗的 Gas 计算代币数量
         uint256 actualTokenCost = (actualGasCost * ethPrice * PRICE_MARKUP) /
             (1e8 * PRICE_DENOMINATOR);
 
+        // 从用户钱包划转代币到 Paymaster 合约中
+        // 注意：用户必须预先对本合约进行 token.approve
         token.safeTransferFrom(sender, address(this), actualTokenCost);
+    }
+
+    /**
+     * @notice 管理员功能：向 EntryPoint 充值 ETH 以维持 Paymaster 运行
+     */
+    function deposit() external payable onlyOwner {
+        entryPoint().depositTo{value: msg.value}(address(this));
+    }
+
+    /**
+     * @notice 管理员功能：提取 Paymaster 合约中收取的 ERC20 代币利润
+     * @param to 接收地址
+     * @param amount 提取金额
+     */
+    function withdrawToken(address to, uint256 amount) external onlyOwner {
+        token.safeTransfer(to, amount);
     }
 }
