@@ -13,8 +13,6 @@
 
 ## 3. 系统架构 (System Architecture)
 
-这是文档的核心，展示你对 Web3 基础设施的理解。
-
 ### 3.1 核心组件
 
 * **FishCakeFactory**: 利用 `CREATE2` 实现的确定性部署合约。
