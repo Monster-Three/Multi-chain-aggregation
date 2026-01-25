@@ -113,12 +113,6 @@ forge script script/DeployFishCakePaymaster.s.sol:DeployFishCakePaymaster \
 
 ```
 
-## 📝 许可证
-
-本项目采用 [MIT License](https://www.google.com/search?q=LICENSE) 授权。
-
----
-
 ## 🌐 部署信息 (Deployment Status)
 
 本项目已成功部署至 **HashKey Chain Testnet**，实现了账户抽象架构在合规高性能公链上的初步落地。
@@ -136,3 +130,9 @@ forge script script/DeployFishCakePaymaster.s.sol:DeployFishCakePaymaster \
 
 > **Deployment Proof**:
 > Transaction Hash: `0x6559f3d03119ef30e52050be4c20d1454f75b607423cd27aaad3b3601490d0ca`
+>
+> ## 📝 许可证
+
+本项目采用 [MIT License](https://www.google.com/search?q=LICENSE) 授权。
+
+---
