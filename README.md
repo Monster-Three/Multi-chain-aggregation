@@ -76,9 +76,63 @@ forge build
 
 ```
 
----
+## 🔐 安全开发实践 (Security Best Practices)
+
+在本项目开发过程中，我们严格遵循生产级安全标准，拒绝使用明文私钥。我们利用 **Foundry Keystore** 对敏感信息进行加密管理：
+
+### 1. 安全导入私钥
+
+通过交互式命令行创建加密密钥库，确保私钥不进入 Bash 历史记录：
+
+```bash
+# 使用 Cast 安全导入私钥并命名为 defaultkey
+cast wallet import defaultkey --interactive
+
+# 按照提示输入私钥和高强度加密密码
+# Enter private key: ********************************
+# Enter password: **********
+
+# 成功结果：
+# `defaultkey` keystore was saved successfully. 
+# Address: 0xbc7bb5ba727a3edff6806c017b14e91c0db97336
+
+```
+
+### 2. 加密调用部署脚本
+
+在部署阶段，我们通过 `--account` 参数调用加密账户，这是目前最安全的链上交互方式之一：
+
+```bash
+forge script script/DeployFishCakePaymaster.s.sol:DeployFishCakePaymaster \
+    --rpc-url $HASHKEY_RPC \
+    --account defaultkey \
+    --sender 0xbc7bb5ba727a3edff6806c017b14e91c0db97336 \
+    --broadcast \
+    --legacy \
+    -vvvv
+
+```
 
 ## 📝 许可证
 
 本项目采用 [MIT License](https://www.google.com/search?q=LICENSE) 授权。
 
+---
+
+## 🌐 部署信息 (Deployment Status)
+
+本项目已成功部署至 **HashKey Chain Testnet**，实现了账户抽象架构在合规高性能公链上的初步落地。
+
+### HashKey Chain (Testnet)
+
+* **Network Name**: HashKey Chain Testnet
+* **Chain ID**: `133`
+* **RPC Endpoint**: `https://testnet.hsk.xyz`
+
+| Contract | Version | Address | Explorer |
+| --- | --- | --- | --- |
+| **FishCakePaymaster** | V1 (Whitelist) | `0x5B9aaF769b6a51fd8502E06D15f1362B95F522C5` | [View on Explorer](https://www.google.com/search?q=https://explorer.testnet.hashkey.com/address/0x5B9aaF769b6a51fd8502E06D15f1362B95F522C5) |
+| **EntryPoint** | v0.6 | `0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789` | - |
+
+> **Deployment Proof**:
+> Transaction Hash: `0x6559f3d03119ef30e52050be4c20d1454f75b607423cd27aaad3b3601490d0ca`
